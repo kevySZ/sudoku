@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sudoku_primary">#FF6E927F</color>
+    <color name="sudoku_primary_dark">#FF4F7061</color>
+    <color name="sudoku_secondary">#FF6E927F</color>
+    <color name="sudoku_background">#FFF7F3EA</color>
+    <color name="sudoku_surface">#FFFFFCF6</color>
+    <color name="sudoku_surface_alt">#FFEAF1EC</color>
+    <color name="sudoku_text">#FF25302B</color>
+    <color name="sudoku_muted">#FF6F7B73</color>
+    <color name="sudoku_accent">#FFE8D9A8</color>
+    <color name="sudoku_border">#FFE4DED1</color>
+    <color name="sudoku_number_border">#FFE3DCCD</color>
+    <color name="sudoku_board_background">#FFFFFCF6</color>
+    <color name="sudoku_board_same_value">#FFF4EBCA</color>
+    <color name="sudoku_board_cross">#FFEAF1EC</color>
+    <color name="sudoku_board_selected">#FFC6DED3</color>
+    <color name="sudoku_board_warning">#FFF7DACD</color>
+    <color name="sudoku_board_given_text">#FF25302B</color>
+    <color name="sudoku_board_user_text">#FF4E7061</color>
+    <color name="sudoku_board_grid">#FF3E4C44</color>
+    <color name="sudoku_paused_overlay">#96F5F5F1</color>
+    <color name="sudoku_logo_shadow">#1A000000</color>
+    <color name="sudoku_transparent">#00000000</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Sudoku" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/sudoku_primary</item>
+        <item name="colorPrimaryVariant">@color/sudoku_primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/sudoku_secondary</item>
+        <item name="colorSecondaryVariant">@color/sudoku_primary_dark</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:navigationBarColor">@color/sudoku_primary_dark</item>
+    </style>
+</resources>
