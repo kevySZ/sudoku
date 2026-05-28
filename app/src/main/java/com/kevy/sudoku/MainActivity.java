@@ -13,9 +13,12 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import com.kevy.sudoku.game.Difficulty;
@@ -38,6 +41,7 @@ public class MainActivity extends Activity {
     private static final int BUTTON_SHADOW_BOTTOM_SPACE_DP = 10;
     private static final String PREFS_NAME = "sudoku_game";
     private static final String RECORDS_PREFS_NAME = "sudoku_records";
+    private static final String SETTINGS_PREFS_NAME = "sudoku_settings";
     private static final String WALLET_PREFS_NAME = "sudoku_wallet";
     private static final String KEY_HAS_SAVED = "has_saved";
     private static final String KEY_DIFFICULTY = "difficulty";
@@ -46,11 +50,13 @@ public class MainActivity extends Activity {
     private static final String KEY_CURRENT = "current";
     private static final String KEY_MISTAKES = "mistakes";
     private static final String KEY_HINTS_USED = "hints_used";
+    private static final String KEY_GUIDE_MODE_GAME = "guide_mode_game";
     private static final String KEY_ELAPSED = "elapsed";
     private static final String KEY_PAUSED = "paused";
     private static final String KEY_SELECTED_CELL = "selected_cell";
     private static final String KEY_COIN_BALANCE = "coin_balance";
     private static final String KEY_WALLET_INITIALIZED = "wallet_initialized";
+    private static final String KEY_GUIDE_MODE_ENABLED = "guide_mode_enabled";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final SudokuGenerator generator = new SudokuGenerator();
@@ -77,6 +83,7 @@ public class MainActivity extends Activity {
     private Button pauseButton;
     private Button hintButton;
     private Button continueButton;
+    private Switch guideModeSwitch;
     private TextView continueHintText;
     private LinearLayout numberPad;
     private ProgressBar progressBar;
@@ -87,6 +94,7 @@ public class MainActivity extends Activity {
     private int selectedCell = -1;
     private int mistakes = 0;
     private int hintsUsed = 0;
+    private boolean guideModeForGame = false;
     private boolean paused = false;
     private boolean gameOver = false;
     private boolean generating = false;
@@ -96,6 +104,21 @@ public class MainActivity extends Activity {
     private long elapsedBeforeStartMs = 0L;
     private long timerStartedAtMs = 0L;
     private int generationToken = 0;
+
+    private static class CompletionRecord implements Comparable<CompletionRecord> {
+        final long elapsedMs;
+        final boolean guided;
+
+        CompletionRecord(long elapsedMs, boolean guided) {
+            this.elapsedMs = elapsedMs;
+            this.guided = guided;
+        }
+
+        @Override
+        public int compareTo(CompletionRecord other) {
+            return Long.compare(elapsedMs, other.elapsedMs);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -148,16 +171,13 @@ public class MainActivity extends Activity {
         scrollView.addView(root, new ScrollView.LayoutParams(-1, -2));
         setContentView(scrollView);
 
-        SudokuLogoView logoView = new SudokuLogoView(this);
-        root.addView(logoView, new LinearLayout.LayoutParams(dp(92), dp(92)));
-
         TextView title = new TextView(this);
         title.setText(R.string.app_name);
         title.setTextSize(36);
         title.setGravity(Gravity.CENTER);
         title.setTextColor(color(R.color.sudoku_text));
         title.setTypeface(title.getTypeface(), Typeface.BOLD);
-        title.setPadding(0, dp(16), 0, 0);
+        title.setPadding(0, 0, 0, 0);
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         TextView subtitle = new TextView(this);
@@ -221,6 +241,43 @@ public class MainActivity extends Activity {
         }
         selectedHomeDifficulty = difficulty;
         updateDifficultyButtons();
+
+        LinearLayout guideModeRow = new LinearLayout(this);
+        guideModeRow.setOrientation(LinearLayout.HORIZONTAL);
+        guideModeRow.setGravity(Gravity.CENTER_VERTICAL);
+        guideModeRow.setPadding(dp(16), dp(12), dp(14), dp(12));
+        setRoundedBackground(guideModeRow, color(R.color.sudoku_surface_alt), 0, dp(16));
+        LinearLayout.LayoutParams guideModeParams = new LinearLayout.LayoutParams(-1, -2);
+        guideModeParams.topMargin = dp(8);
+        guideModeParams.bottomMargin = dp(12);
+        root.addView(guideModeRow, guideModeParams);
+
+        LinearLayout guideModeCopy = new LinearLayout(this);
+        guideModeCopy.setOrientation(LinearLayout.VERTICAL);
+        guideModeRow.addView(guideModeCopy, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        TextView guideModeTitle = new TextView(this);
+        guideModeTitle.setText(R.string.guide_mode_title);
+        guideModeTitle.setTextSize(16);
+        guideModeTitle.setTextColor(color(R.color.sudoku_text));
+        guideModeTitle.setTypeface(guideModeTitle.getTypeface(), Typeface.BOLD);
+        guideModeCopy.addView(guideModeTitle, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView guideModeSubtitle = new TextView(this);
+        guideModeSubtitle.setText(R.string.guide_mode_subtitle);
+        guideModeSubtitle.setTextSize(12);
+        guideModeSubtitle.setTextColor(color(R.color.sudoku_muted));
+        guideModeSubtitle.setPadding(0, dp(3), dp(10), 0);
+        guideModeCopy.addView(guideModeSubtitle, new LinearLayout.LayoutParams(-1, -2));
+
+        guideModeSwitch = new Switch(this);
+        guideModeSwitch.setShowText(false);
+        guideModeSwitch.setMinWidth(dp(52));
+        guideModeSwitch.setThumbDrawable(getDrawable(R.drawable.guide_switch_thumb));
+        guideModeSwitch.setTrackDrawable(getDrawable(R.drawable.guide_switch_track));
+        guideModeSwitch.setChecked(isGuideModeEnabled());
+        guideModeSwitch.setOnCheckedChangeListener((CompoundButton buttonView, boolean isChecked) -> setGuideModeEnabled(isChecked));
+        guideModeRow.addView(guideModeSwitch, new LinearLayout.LayoutParams(dp(56), dp(36)));
 
         Button startButton = new Button(this);
         startButton.setText(R.string.start_game);
@@ -424,6 +481,7 @@ public class MainActivity extends Activity {
         paused = false;
         mistakes = 0;
         hintsUsed = 0;
+        guideModeForGame = isGuideModeEnabled();
         selectedCell = -1;
         puzzle = null;
         currentValues = new int[CELL_COUNT];
@@ -590,7 +648,7 @@ public class MainActivity extends Activity {
         gameOver = true;
         pauseTimer();
         long completedElapsedMs = getElapsedMs();
-        boolean newBestRecord = updateBestRecord(difficulty, completedElapsedMs);
+        boolean newBestRecord = updateBestRecord(difficulty, completedElapsedMs, guideModeForGame);
         int rewardCoins = rewardForDifficulty(difficulty);
         addCoins(rewardCoins);
         clearSavedGame();
@@ -627,7 +685,7 @@ public class MainActivity extends Activity {
             return;
         }
         boolean playable = puzzle != null && !generating && !paused && !gameOver;
-        int assistedValue = getBoxCompletionAssistedValue();
+        int assistedValue = getAssistedCompletionValue();
         boardView.setInputEnabled(playable);
         numberPad.setEnabled(playable);
         for (int i = 0; i < numberPad.getChildCount(); i++) {
@@ -668,36 +726,58 @@ public class MainActivity extends Activity {
         hintButton.setAlpha(hintAvailable && getCoinBalance() >= HINT_COST ? 1f : 0.55f);
     }
 
-    private int getBoxCompletionAssistedValue() {
-        if (!isBoxCompletionAssistEnabled() || selectedCell < 0 || selectedCell >= CELL_COUNT
-                || currentValues[selectedCell] != 0) {
+    private int getAssistedCompletionValue() {
+        if (puzzle == null || selectedCell < 0 || selectedCell >= CELL_COUNT || currentValues[selectedCell] != 0) {
             return 0;
         }
-        int boxRow = selectedCell / 27;
-        int boxCol = (selectedCell % 9) / 3;
+        if (guideModeForGame) {
+            return hasSingleEmptyInRow(selectedCell)
+                    || hasSingleEmptyInColumn(selectedCell)
+                    || hasSingleEmptyInBox(selectedCell)
+                    ? puzzle.getSolution()[selectedCell] : 0;
+        }
+        if (!isBoxCompletionAssistEnabled() || !hasSingleEmptyInBox(selectedCell)) {
+            return 0;
+        }
+        return puzzle.getSolution()[selectedCell];
+    }
+
+    private boolean hasSingleEmptyInRow(int cell) {
+        int rowStart = cell / 9 * 9;
+        int emptyCount = 0;
+        for (int i = rowStart; i < rowStart + 9; i++) {
+            if (currentValues[i] == 0) {
+                emptyCount++;
+            }
+        }
+        return emptyCount == 1;
+    }
+
+    private boolean hasSingleEmptyInColumn(int cell) {
+        int column = cell % 9;
+        int emptyCount = 0;
+        for (int row = 0; row < 9; row++) {
+            if (currentValues[row * 9 + column] == 0) {
+                emptyCount++;
+            }
+        }
+        return emptyCount == 1;
+    }
+
+    private boolean hasSingleEmptyInBox(int cell) {
+        int boxRow = cell / 27;
+        int boxCol = (cell % 9) / 3;
         int startRow = boxRow * 3;
         int startCol = boxCol * 3;
         int emptyCount = 0;
-        boolean[] seen = new boolean[10];
         for (int row = startRow; row < startRow + 3; row++) {
             for (int col = startCol; col < startCol + 3; col++) {
-                int value = currentValues[row * 9 + col];
-                if (value == 0) {
+                if (currentValues[row * 9 + col] == 0) {
                     emptyCount++;
-                } else if (value >= 1 && value <= 9) {
-                    seen[value] = true;
                 }
             }
         }
-        if (emptyCount != 1) {
-            return 0;
-        }
-        for (int value = 1; value <= 9; value++) {
-            if (!seen[value]) {
-                return value;
-            }
-        }
-        return 0;
+        return emptyCount == 1;
     }
 
     private boolean isBoxCompletionAssistEnabled() {
@@ -770,13 +850,13 @@ public class MainActivity extends Activity {
         root.addView(backButton, backParams);
     }
 
-    private boolean updateBestRecord(Difficulty recordDifficulty, long elapsedMs) {
+    private boolean updateBestRecord(Difficulty recordDifficulty, long elapsedMs, boolean guided) {
         if (recordDifficulty == null || elapsedMs <= 0L) {
             return false;
         }
-        List<Long> records = getBestRecords(recordDifficulty);
-        long oldBest = records.isEmpty() ? 0L : records.get(0);
-        records.add(elapsedMs);
+        List<CompletionRecord> records = getBestRecords(recordDifficulty);
+        long oldBest = records.isEmpty() ? 0L : records.get(0).elapsedMs;
+        records.add(new CompletionRecord(elapsedMs, guided));
         Collections.sort(records);
         while (records.size() > MAX_BEST_RECORDS) {
             records.remove(records.size() - 1);
@@ -786,8 +866,13 @@ public class MainActivity extends Activity {
     }
 
     private long getBestRecord(Difficulty recordDifficulty) {
-        List<Long> records = getBestRecords(recordDifficulty);
-        return records.isEmpty() ? 0L : records.get(0);
+        CompletionRecord record = getBestRecordEntry(recordDifficulty);
+        return record == null ? 0L : record.elapsedMs;
+    }
+
+    private CompletionRecord getBestRecordEntry(Difficulty recordDifficulty) {
+        List<CompletionRecord> records = getBestRecords(recordDifficulty);
+        return records.isEmpty() ? null : records.get(0);
     }
 
     private String bestRecordKey(Difficulty recordDifficulty) {
@@ -798,8 +883,8 @@ public class MainActivity extends Activity {
         return "best_list_" + recordDifficulty.name();
     }
 
-    private List<Long> getBestRecords(Difficulty recordDifficulty) {
-        List<Long> records = new ArrayList<>();
+    private List<CompletionRecord> getBestRecords(Difficulty recordDifficulty) {
+        List<CompletionRecord> records = new ArrayList<>();
         if (recordDifficulty == null) {
             return records;
         }
@@ -809,18 +894,20 @@ public class MainActivity extends Activity {
             String[] parts = encoded.split(",");
             for (String part : parts) {
                 try {
-                    long value = Long.parseLong(part);
+                    String[] fields = part.split(":");
+                    long value = Long.parseLong(fields[0]);
+                    boolean guided = fields.length > 1 && "1".equals(fields[1]);
                     if (value > 0L) {
-                        records.add(value);
+                        records.add(new CompletionRecord(value, guided));
                     }
                 } catch (NumberFormatException ignored) {
-                    // Ignore corrupted local record entries and keep the valid ones.
+                    // 忽略损坏的本地记录项，保留其他有效记录。
                 }
             }
         } else {
             long legacyBest = prefs.getLong(bestRecordKey(recordDifficulty), 0L);
             if (legacyBest > 0L) {
-                records.add(legacyBest);
+                records.add(new CompletionRecord(legacyBest, false));
             }
         }
         Collections.sort(records);
@@ -830,31 +917,31 @@ public class MainActivity extends Activity {
         return records;
     }
 
-    private void saveBestRecords(Difficulty recordDifficulty, List<Long> records) {
+    private void saveBestRecords(Difficulty recordDifficulty, List<CompletionRecord> records) {
         if (recordDifficulty == null) {
             return;
         }
         StringBuilder builder = new StringBuilder();
         int limit = Math.min(records == null ? 0 : records.size(), MAX_BEST_RECORDS);
         for (int i = 0; i < limit; i++) {
-            long value = records.get(i);
-            if (value <= 0L) {
+            CompletionRecord record = records.get(i);
+            if (record.elapsedMs <= 0L) {
                 continue;
             }
             if (builder.length() > 0) {
                 builder.append(',');
             }
-            builder.append(value);
+            builder.append(record.elapsedMs).append(':').append(record.guided ? '1' : '0');
         }
         SharedPreferences.Editor editor = getSharedPreferences(RECORDS_PREFS_NAME, MODE_PRIVATE).edit();
         editor.putString(bestRecordsKey(recordDifficulty), builder.toString());
-        editor.putLong(bestRecordKey(recordDifficulty), limit > 0 ? records.get(0) : 0L);
+        editor.putLong(bestRecordKey(recordDifficulty), limit > 0 ? records.get(0).elapsedMs : 0L);
         editor.apply();
     }
 
     private void addRecordRow(LinearLayout table, Difficulty item) {
-        long bestTime = getBestRecord(item);
-        boolean hasRecord = bestTime > 0L;
+        CompletionRecord bestRecord = getBestRecordEntry(item);
+        boolean hasRecord = bestRecord != null;
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -874,10 +961,16 @@ public class MainActivity extends Activity {
         row.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
 
         TextView time = new TextView(this);
-        time.setText(hasRecord ? formatTime(bestTime) : getString(R.string.no_record));
+        time.setText(hasRecord ? formatTime(bestRecord.elapsedMs) : getString(R.string.no_record));
         time.setTextSize(18);
         time.setGravity(Gravity.END);
         time.setTextColor(hasRecord ? color(R.color.sudoku_primary_dark) : color(R.color.sudoku_muted));
+
+        if (hasRecord && bestRecord.guided) {
+            ImageView guidedIcon = recordGuidedIcon();
+            row.addView(guidedIcon, new LinearLayout.LayoutParams(dp(20), dp(20)));
+        }
+
         row.addView(time, new LinearLayout.LayoutParams(0, -2, 1f));
 
         if (hasRecord) {
@@ -928,7 +1021,7 @@ public class MainActivity extends Activity {
         setRoundedBackground(table, color(R.color.sudoku_surface), color(R.color.sudoku_border), dp(18));
         root.addView(table, new LinearLayout.LayoutParams(-1, -2));
 
-        List<Long> records = getBestRecords(item);
+        List<CompletionRecord> records = getBestRecords(item);
         if (records.isEmpty()) {
             TextView empty = new TextView(this);
             empty.setText(R.string.record_detail_empty);
@@ -954,7 +1047,7 @@ public class MainActivity extends Activity {
         root.addView(backButton, backParams);
     }
 
-    private void addRecordDetailRow(LinearLayout table, int rank, long elapsedMs) {
+    private void addRecordDetailRow(LinearLayout table, int rank, CompletionRecord record) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -968,13 +1061,26 @@ public class MainActivity extends Activity {
         rankText.setTypeface(rankText.getTypeface(), Typeface.BOLD);
         row.addView(rankText, new LinearLayout.LayoutParams(0, -2, 1f));
 
+        if (record.guided) {
+            ImageView guidedIcon = recordGuidedIcon();
+            row.addView(guidedIcon, new LinearLayout.LayoutParams(dp(20), dp(20)));
+        }
+
         TextView time = new TextView(this);
-        time.setText(formatTime(elapsedMs));
+        time.setText(formatTime(record.elapsedMs));
         time.setTextSize(18);
         time.setGravity(Gravity.END);
         time.setTextColor(color(R.color.sudoku_text));
         time.setTypeface(time.getTypeface(), Typeface.BOLD);
         row.addView(time, new LinearLayout.LayoutParams(0, -2, 1f));
+    }
+
+    private ImageView recordGuidedIcon() {
+        ImageView guidedIcon = new ImageView(this);
+        guidedIcon.setImageResource(R.drawable.ic_record_guided);
+        guidedIcon.setContentDescription(getString(R.string.record_guided_content_description));
+        guidedIcon.setPadding(0, 0, dp(6), 0);
+        return guidedIcon;
     }
 
     private TextView sectionLabel(String text) {
@@ -1125,6 +1231,18 @@ public class MainActivity extends Activity {
                 .apply();
     }
 
+    private boolean isGuideModeEnabled() {
+        return getSharedPreferences(SETTINGS_PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(KEY_GUIDE_MODE_ENABLED, false);
+    }
+
+    private void setGuideModeEnabled(boolean enabled) {
+        getSharedPreferences(SETTINGS_PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_GUIDE_MODE_ENABLED, enabled)
+                .apply();
+    }
+
     private int rewardForDifficulty(Difficulty value) {
         switch (value) {
             case BEGINNER:
@@ -1207,6 +1325,7 @@ public class MainActivity extends Activity {
         editor.putString(KEY_CURRENT, encodeArray(currentValues));
         editor.putInt(KEY_MISTAKES, mistakes);
         editor.putInt(KEY_HINTS_USED, hintsUsed);
+        editor.putBoolean(KEY_GUIDE_MODE_GAME, guideModeForGame);
         editor.putLong(KEY_ELAPSED, getElapsedMs());
         editor.putBoolean(KEY_PAUSED, paused);
         editor.putInt(KEY_SELECTED_CELL, selectedCell);
@@ -1231,6 +1350,7 @@ public class MainActivity extends Activity {
             currentValues = current;
             mistakes = Math.max(0, Math.min(MAX_MISTAKES, prefs.getInt(KEY_MISTAKES, 0)));
             hintsUsed = Math.max(0, Math.min(MAX_HINTS, prefs.getInt(KEY_HINTS_USED, 0)));
+            guideModeForGame = prefs.getBoolean(KEY_GUIDE_MODE_GAME, false);
             elapsedBeforeStartMs = Math.max(0L, prefs.getLong(KEY_ELAPSED, 0L));
             paused = prefs.getBoolean(KEY_PAUSED, false);
             selectedCell = prefs.getInt(KEY_SELECTED_CELL, -1);

@@ -22,6 +22,10 @@
     <color name="sudoku_paused_overlay">#96F5F5F1</color>
     <color name="sudoku_logo_shadow">#1A000000</color>
     <color name="sudoku_transparent">#00000000</color>
+    <color name="guide_switch_track_on">#61FDE293</color>
+    <color name="guide_switch_track_off">#61FFFFFF</color>
+    <color name="guide_switch_thumb_on">#FFFDE293</color>
+    <color name="guide_switch_thumb_off">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

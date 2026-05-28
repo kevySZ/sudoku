@@ -6,6 +6,8 @@
     <string name="difficulty_intermediate">中级</string>
     <string name="difficulty_advanced">高级</string>
     <string name="difficulty_nightmare">噩梦</string>
+    <string name="guide_mode_title">指引模式</string>
+    <string name="guide_mode_subtitle">单行、单列或九宫格只剩一格时自动高亮答案</string>
     <string name="start_game">开始游戏</string>
     <string name="continue_game">继续游戏</string>
     <string name="best_records">最佳记录</string>
@@ -48,6 +50,7 @@
     <string name="record_detail_empty">暂无完成记录</string>
     <string name="record_rank">第 %1$d 名</string>
     <string name="record_drilldown_indicator">&gt;</string>
+    <string name="record_guided_content_description">指引模式完成</string>
     <string name="no_record">暂无记录</string>
     <string name="back_home">返回首页</string>
     <string name="back_records">返回最佳记录</string>
